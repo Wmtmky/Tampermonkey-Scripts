@@ -1,0 +1,45 @@
+// ==UserScript==
+// @name         Real Loc Count
+// @namespace    https://www.geoguessr.com/
+// @version      0.1
+// @description  Finds the precise number of locations a Geoguessr map has.
+// @author       Wmtmky
+// @match        http*://www.geoguessr.com/*
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=geoguessr.com
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    const API_SEARCH = "https://www.geoguessr.com/api/v3/search/map?q=";
+
+    const delay_ms = 1000;
+
+    let i_URL = undefined;
+    setInterval(function () {
+        let f_URL = window.location.href;
+        if (f_URL != i_URL) {
+            i_URL = f_URL;
+            let a_URL = f_URL.split("/")
+            if (a_URL[a_URL.length - 2] == "maps") {
+                getLocCount(a_URL[a_URL.length - 1]);
+            }
+        }
+    }, delay_ms);
+
+    async function getLocCount(mapID) {
+        const response = await fetch(API_SEARCH + mapID);
+        const responseArray = await response.json();
+        for (let result of responseArray) {
+            if (result.id == mapID) {
+                updateDisplay(result.coordinateCount);
+            }
+        }
+    }
+
+    function updateDisplay(realLocCount) {
+        const locCountDisplay = document.getElementsByClassName("map-stats_mapStatMetricValue__njXha")[2];
+        locCountDisplay.innerText = realLocCount;
+    }
+
+})();
