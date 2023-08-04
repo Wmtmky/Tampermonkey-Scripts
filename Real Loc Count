@@ -2,7 +2,7 @@
 // @name         Real Loc Count
 // @namespace    https://www.geoguessr.com/
 // @version      0.1
-// @description  Finds the precise number of locations a Geoguessr map has.
+// @description  Finds the precise number of locations a GeoGuessr map has.
 // @author       Wmtmky
 // @match        http*://www.geoguessr.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=geoguessr.com
