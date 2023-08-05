@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Real Loc Count
 // @namespace    https://www.geoguessr.com/
-// @version      0.1
-// @description  Finds the precise number of locations a GeoGuessr map has.
+// @version      0.2
+// @description  Gives the precise number of locations a GeoGuessr map has on its map page.
 // @author       Wmtmky
 // @match        http*://www.geoguessr.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=geoguessr.com
@@ -12,7 +12,6 @@
     'use strict';
 
     const API_SEARCH = "https://www.geoguessr.com/api/v3/search/map?q=";
-
     const delay_ms = 1000;
 
     let i_URL = undefined;
@@ -33,6 +32,7 @@
         for (let result of responseArray) {
             if (result.id == mapID) {
                 updateDisplay(result.coordinateCount);
+                return;
             }
         }
     }
