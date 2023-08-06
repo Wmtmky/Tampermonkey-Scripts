@@ -1,0 +1,168 @@
+// ==UserScript==
+// @name         Mount Gambier Speedrun
+// @namespace    http://tampermonkey.net/
+// @version      1.0
+// @description  Plays games of GeoGuessr only guessing Mount Gambier.
+// @author       Wmtmky
+// @match        http*://www.geoguessr.com/*
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=geoguessr.com
+// ==/UserScript==
+
+// SETTINGS
+let lScore = 4;
+let hScore = 8880;
+
+// MAIN
+const gamesAPI = "https://www.geoguessr.com/api/v3/games";
+const deleteAPI = "https://www.geoguessr.com/api/v3/social/events/unfinishedgames/";
+const ticketAPI = "https://www.geoguessr.com/api/v3/accounts/ticket";
+const delay = 100; //ms
+let active = false;
+let awake = undefined;
+let gc = undefined;
+let allScores = [];
+let topScores = {};
+
+function powerOn() {
+    start();
+    awake = setInterval(function() {
+        start();
+    }, 15 * 60 * 1000 + 1000);
+}
+
+function asleep() {
+    clearInterval(awake);
+    console.log("asleep");
+}
+
+function start() {
+    active = true;
+    allScores = [];
+    countdown();
+}
+
+function countdown() {
+    setTimeout(function(){
+        active = false;
+        console.log("turned off");
+    }, 5 * 60 * 1000);
+    fetch(ticketAPI, {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
+    })
+    .then(res => res.json())
+    .then(res => {
+        setTimeout(function() {
+            sendFirst();
+        }, 10);
+    });
+}
+
+async function sendFirst() {
+    fetch(gamesAPI, {
+        method: 'POST',
+        headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            "map": "64cc62d03957599b639adb40",
+            "type": "standard",
+            "timeLimit": 0,
+            "forbidMoving": true,
+            "forbidZooming": true,
+            "forbidRotating": true,
+            "rounds": 5
+        })
+    })
+    .then(res => res.json())
+    .then(res => {
+        if (res.token != undefined) return sendExisting(res.token);
+    });
+}
+
+async function sendExisting(gameCode) {
+    let i = 0
+    let sendPayload = (i, isWithPost) => {
+        if (isWithPost) {
+            fetch(gamesAPI + '/' + gameCode, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    "token": gameCode,
+                    "lat": -37.829444,
+                    "lng": 140.782778,
+                    "timedOut": false
+                })
+            })
+            .then(res => res.json())
+            .then(res => {
+                setTimeout(function() {
+                    sendPayload(i, false);
+                }, 0);
+            });
+        } else {
+            fetch(gamesAPI + '/' + gameCode)
+            .then(res => res.json())
+            .then(res => {
+                i++
+                if (i < 5) {
+                    setTimeout(function() {
+                        sendPayload(i, true);
+                    }, delay);
+                }
+                if (i >= 5) {
+                    let tScore = Number(res.player.totalScore.amount);
+                    allScores.push("done " + gameCode + " with " + tScore + " pts");
+                    if (tScore <= lScore || tScore >= hScore) {
+                        topScores[gameCode] = tScore;
+                        console.log("done " + gameCode + " with " + tScore + " pts")
+                    }
+
+                    let rounds = res.player.guesses;
+                    for (let round of rounds) {
+                        if (Number(round.roundScore.amount) > 4993) {
+                            console.log("round in " + gameCode);
+                        }
+                    }
+
+                    // and restart the cycle
+                    if (active && gameCode != undefined) return sendFirst();
+                }
+            });
+        }
+
+    }
+    sendPayload(i, true);
+}
+
+document.addEventListener("keydown", (keyevent) => {
+    if(keyevent.keyCode === 72) { //h = start
+        powerOn();
+        /* Timed Power Off
+        setTimeout(function() {
+            asleep();
+        }, 8 * 60 * 60 * 1000);
+        //*/
+    }
+    if(keyevent.keyCode === 74) { //j = show top scores
+        console.log(topScores);
+    }
+    if(keyevent.keyCode === 75) { //k = show all scores
+        console.log(allScores);
+    }
+    if(keyevent.keyCode === 76) { //l = turn off
+        active = false;
+        asleep();
+    }
+    if(keyevent.keyCode === 79) { //o = interval status
+        console.log(awake);
+    }
+});
