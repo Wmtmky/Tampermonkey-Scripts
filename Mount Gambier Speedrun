@@ -134,7 +134,9 @@ async function sendExisting(gameCode) {
                     }
 
                     // and restart the cycle
-                    if (active && gameCode != undefined) return sendFirst();
+                    setTimeout(function() {
+                        if (active) return sendFirst();
+                    }, delay);
                 }
             });
         }
