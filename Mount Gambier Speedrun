@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Mount Gambier Speedrun
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.0.2
 // @description  Plays games of GeoGuessr only guessing Mount Gambier.
 // @author       Wmtmky
 // @match        http*://www.geoguessr.com/*
@@ -11,12 +11,12 @@
 // SETTINGS
 let lScore = 4;
 let hScore = 8880;
+const delay = 1000; //ms (must be >1s as per Geoguessr Terms of Service #7f)
 
 // MAIN
 const gamesAPI = "https://www.geoguessr.com/api/v3/games";
 const deleteAPI = "https://www.geoguessr.com/api/v3/social/events/unfinishedgames/";
 const ticketAPI = "https://www.geoguessr.com/api/v3/accounts/ticket";
-const delay = 1000; //ms (must be >1s as per Geoguessr Terms of Service #7f)
 let active = false;
 let awake = undefined;
 let gc = undefined;
@@ -27,7 +27,7 @@ function powerOn() {
     start();
     awake = setInterval(function() {
         start();
-    }, 15 * 60 * 1000 + 1000);
+    }, 905);
 }
 
 function asleep() {
