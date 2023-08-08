@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Mount Gambier Speedrun
 // @namespace    http://tampermonkey.net/
-// @version      1.0.2
+// @version      1.0.4
 // @description  Plays games of GeoGuessr only guessing Mount Gambier.
 // @author       Wmtmky
 // @match        http*://www.geoguessr.com/*
@@ -11,7 +11,7 @@
 // SETTINGS
 let lScore = 4;
 let hScore = 8880;
-const delay = 1000; //ms (must be >1s as per Geoguessr Terms of Service #7f)
+const delay = 1000; //ms (must be >1000ms as per Geoguessr Terms of Service Section 7f)
 
 // MAIN
 const gamesAPI = "https://www.geoguessr.com/api/v3/games";
@@ -27,25 +27,25 @@ function powerOn() {
     start();
     awake = setInterval(function() {
         start();
-    }, 905);
+    }, 905 * 1000);
 }
 
 function asleep() {
-    clearInterval(awake);
-    console.log("asleep");
+    if (awake) {
+        clearInterval(awake);
+        console.log("asleep");
+    }
 }
 
 function start() {
     active = true;
     allScores = [];
-    countdown();
-}
+    console.log("active");
 
-function countdown() {
     setTimeout(function(){
         active = false;
-        console.log("turned off");
-    }, 5 * 60 * 1000);
+        console.log("waiting");
+    }, 295 * 1000);
     fetch(ticketAPI, {
         method: 'POST',
         headers: {
@@ -81,7 +81,9 @@ async function sendFirst() {
     })
     .then(res => res.json())
     .then(res => {
-        if (res.token != undefined) return sendExisting(res.token);
+        setTimeout(function() {
+            if (res.token != undefined) return sendExisting(res.token);
+        }, delay);
     });
 }
 
@@ -163,8 +165,5 @@ document.addEventListener("keydown", (keyevent) => {
     if(keyevent.keyCode === 76) { //l = turn off
         active = false;
         asleep();
-    }
-    if(keyevent.keyCode === 79) { //o = interval status
-        console.log(awake);
     }
 });
