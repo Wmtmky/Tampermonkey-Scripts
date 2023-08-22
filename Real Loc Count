@@ -27,7 +27,7 @@ const do_rounding = false
 ** when set to true
 */
 
-const try_collect_coins_on_page_load = true
+const try_collect_coins_on_page_load = false
 /* tries to collect shop coins when
 ** page is initially opened or reloaded
 */
