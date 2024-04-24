@@ -1,27 +1,31 @@
 // ==UserScript==
-// @name         Mount Gambier Speedrun
+// @name         Mount Gambier Speedrun (RAM saving)
 // @namespace    http://tampermonkey.net/
-// @version      1.0.4
-// @description  Plays games of GeoGuessr only guessing Mount Gambier.
+// @version      1.1.4
+// @description  Plays games of GeoGuessr only guessing Mount Gambier, skipping unfavourable games.
 // @author       Wmtmky
 // @match        http*://www.geoguessr.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=geoguessr.com
 // ==/UserScript==
 
 // SETTINGS
+let skipThreshold = 2;
 let lScore = 4;
 let hScore = 8880;
-const delay = 1000; //ms (must be >1000ms as per Geoguessr Terms of Service Section 7f)
+let iScore = 4992;
+const delay = 1000; //ms (must be >1s as per Geoguessr Terms of Service #7f)
 
 // MAIN
 const gamesAPI = "https://www.geoguessr.com/api/v3/games";
-const deleteAPI = "https://www.geoguessr.com/api/v3/social/events/unfinishedgames/";
+const deleteAPI = "https://www.geoguessr.com/api/v3/social/events/unfinishedgames";
 const ticketAPI = "https://www.geoguessr.com/api/v3/accounts/ticket";
+let report = false;
 let active = false;
 let awake = undefined;
 let gc = undefined;
-let allScores = [];
-let topScores = {};
+//let allScores = [];
+//let topScores = {};
+let onlyRunOnce = false;
 
 function powerOn() {
     start();
@@ -30,22 +34,26 @@ function powerOn() {
     }, 905 * 1000);
 }
 
-function asleep() {
+function powerOff() {
     if (awake) {
         clearInterval(awake);
-        console.log("asleep");
+        console.log("finishing up");
     }
 }
 
 function start() {
     active = true;
-    allScores = [];
-    console.log("active");
+    //allScores = [];
+    if (report) console.log("turned on");
 
     setTimeout(function(){
         active = false;
-        console.log("waiting");
+        if (report) console.log("turned off");
+        setTimeout(function(){
+            deleteSkipped();
+        }, 60 * 1000);
     }, 295 * 1000);
+
     fetch(ticketAPI, {
         method: 'POST',
         headers: {
@@ -75,7 +83,7 @@ async function sendFirst() {
             "timeLimit": 0,
             "forbidMoving": true,
             "forbidZooming": true,
-            "forbidRotating": true,
+            "forbidRotating": false,
             "rounds": 5
         })
     })
@@ -114,31 +122,41 @@ async function sendExisting(gameCode) {
             fetch(gamesAPI + '/' + gameCode)
             .then(res => res.json())
             .then(res => {
-                i++
-                if (i < 5) {
-                    setTimeout(function() {
-                        sendPayload(i, true);
-                    }, delay);
-                }
-                if (i >= 5) {
-                    let tScore = Number(res.player.totalScore.amount);
-                    allScores.push("done " + gameCode + " with " + tScore + " pts");
-                    if (tScore <= lScore || tScore >= hScore) {
-                        topScores[gameCode] = tScore;
-                        console.log("done " + gameCode + " with " + tScore + " pts")
-                    }
 
-                    let rounds = res.player.guesses;
-                    for (let round of rounds) {
-                        if (Number(round.roundScore.amount) > 4993) {
-                            console.log("round in " + gameCode);
+                let rScore = Number(res.player.guesses[i].roundScore.amount);
+                if (rScore > skipThreshold && rScore < iScore) {
+                    setTimeout(function() {
+                        if (active && !onlyRunOnce) return sendFirst();
+                    }, delay);
+                } else {
+
+                    i++
+                    if (i < 5) {
+                        setTimeout(function() {
+                            return sendPayload(i, true);
+                        }, delay);
+                    } else {
+                        let tScore = Number(res.player.totalScore.amount);
+                        if (report) console.log(tScore);
+                        //allScores.push("done " + gameCode + " with " + tScore + " pts");
+                        if (tScore <= lScore || tScore >= hScore) {
+                            //topScores[gameCode] = tScore;
+                            console.log("done " + gameCode + " with " + tScore + " pts");
+                            downloadFile(tScore + " " + gameCode, tScore + " " + gameCode);
                         }
-                    }
 
-                    // and restart the cycle
-                    setTimeout(function() {
-                        if (active) return sendFirst();
-                    }, delay);
+                        let rounds = res.player.guesses;
+                        for (let round of rounds) {
+                            if (Number(round.roundScore.amount) > iScore) {
+                                console.log("round in " + gameCode);
+                            }
+                        }
+
+                        // and restart the cycle
+                        setTimeout(function() {
+                            if (active && !onlyRunOnce) return sendFirst();
+                        }, delay);
+                    }
                 }
             });
         }
@@ -147,23 +165,66 @@ async function sendExisting(gameCode) {
     sendPayload(i, true);
 }
 
+function deleteSkipped() {
+    fetch(deleteAPI)
+    .then(res => res.json())
+    .then(res => {
+        console.log("deleted skipped games")
+    });
+}
+
+//from https://stackoverflow.com/questions/13405129/create-and-save-a-file-with-javascript
+function download(data, filename) {
+    var file = new Blob([data], {type: 'text/plain'});
+    var a = document.createElement("a"),
+        url = URL.createObjectURL(file);
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function() {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }, 0);
+}
+
+function downloadFile(filename, data) {
+    const dataURL = 'data:text/plain;charset=utf-8,' + encodeURIComponent(data);
+    const downloadLink = document.createElement('a');
+    downloadLink.href = dataURL;
+    downloadLink.download = filename;
+
+    // Append the link to the DOM (optional, you can also hide it)
+    document.body.appendChild(downloadLink);
+
+    // Programmatically trigger the download
+    downloadLink.click();
+
+    // Clean up: remove the link from the DOM
+    document.body.removeChild(downloadLink);
+}
+
 document.addEventListener("keydown", (keyevent) => {
     if(keyevent.keyCode === 72) { //h = start
         powerOn();
         /* Timed Power Off
         setTimeout(function() {
-            asleep();
+            powerOff();
         }, 8 * 60 * 60 * 1000);
         //*/
     }
-    if(keyevent.keyCode === 74) { //j = show top scores
-        console.log(topScores);
-    }
-    if(keyevent.keyCode === 75) { //k = show all scores
-        console.log(allScores);
-    }
+    //if(keyevent.keyCode === 74) { //j = show top scores
+        //console.log(topScores);
+    //}
+    //if(keyevent.keyCode === 75) { //k = show all scores
+        //console.log(allScores);
+    //}
     if(keyevent.keyCode === 76) { //l = turn off
         active = false;
-        asleep();
+        powerOff();
+    }
+    if(keyevent.keyCode === 79) { //o = reporting
+        report = !report;
+        console.log(report);
     }
 });
